@@ -12,23 +12,29 @@ def debuglog(text: str, int: int):
     if int == 2:
         print(f'[ERROR] {text}')
 
-import os
-import sys
-from pathlib import Path
-import xml.etree.ElementTree as et
 import configparser
-import subprocess
-from getpass import getpass
+import os
 import shutil
+import subprocess
+import sys
+import xml.etree.ElementTree as et
+from getpass import getpass
+from glob import glob
+from pathlib import Path
 from urllib import request
 
-
+# =============================================================
+# =============================================================
 
 try:
     from pick import pick
 except ImportError as e:
     print('To use this, install pick (pip install pick) first.')
-    debuglog(f'Unable to execute script: {str(e)}')
+    debuglog(f'Unable to execute script: {str(e)}', 2)
+    sys.exit(1)
+
+# =============================================================
+# =============================================================
 
 api = 'https://online.supertuxkart.net/api/v2/user/'
 useragent = 'Mozilla/5.0 (compatible; STKAddonsCLI/1.0; https://github.com/searinminecraft)'
@@ -38,7 +44,7 @@ config = configparser.ConfigParser()
 def clear():
     if debug == True: return
 
-    os.system('clear' if os.name == 'posix' else 'cls') 
+    os.system('clear' if os.name == 'posix' else 'cls')
 
 # ================================================
 # =               BEGIN API CALLS                =
@@ -46,10 +52,10 @@ def clear():
 
 def poll(userid: int, token: str) -> bool:
 
-    
+
     try:
         payload = f'userid={userid}&token={token}'
-        
+
         debuglog(f'Sending \'{payload}\' to \'{api}poll\''.replace(token, '**************'), 0)
 
         proc = subprocess.run([
@@ -63,13 +69,13 @@ def poll(userid: int, token: str) -> bool:
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('poll.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
 
         item = et.parse(os.getcwd() + '/poll.xml')
         res = item.getroot()
-    
+
         success = res.get('success')
         info = res.get('info')
 
@@ -81,6 +87,82 @@ def poll(userid: int, token: str) -> bool:
 
     except Exception as e:
         debuglog(f'An error occured while polling user: {str(e)}', 2)
+        return False
+
+def savedsession(userid: int, token: str) -> bool:
+
+    try:
+        payload = f'userid={userid}&token={token}'
+
+        debuglog(f'Sending \'{payload}\' to \'{api}saved-session\''.replace(token, '**************'), 0)
+
+        proc = subprocess.run([
+                            'curl',
+                            '-fsSL',
+                            '--request',
+                            'POST',
+                            api + 'saved-session',
+                            '--data',
+                            payload,
+                            '--user-agent',
+                            '\'' + useragent + '\''
+                            ], stdout=subprocess.PIPE)
+
+        with open('session.xml', 'w') as f:
+            f.write(proc.stdout.decode('utf-8'))
+
+        item = et.parse(os.getcwd() + '/session.xml')
+        res = item.getroot()
+
+        success = res.get('success')
+        info = res.get('info')
+
+        if success == 'no':
+            debuglog(f'Couldn\'t save session. The server returned an error: {info}',2)
+            return False
+        else:
+            return True
+
+    except Exception as e:
+        debuglog(f'An error occured while saving the session: {str(e)}', 2)
+        return False
+
+def client_quit(userid: int, token: str) -> bool:
+
+    try:
+        payload = f'userid={userid}&token={token}'
+
+        debuglog(f'Sending \'{payload}\' to \'{api}client-quit\''.replace(token, '**************'), 0)
+
+        proc = subprocess.run([
+                            'curl',
+                            '-fsSL',
+                            '--request',
+                            'POST',
+                            api + 'client-quit',
+                            '--data',
+                            payload,
+                            '--user-agent',
+                            '\'' + useragent + '\''
+                            ], stdout=subprocess.PIPE)
+
+        with open('session.xml', 'w') as f:
+            f.write(proc.stdout.decode('utf-8'))
+
+        item = et.parse(os.getcwd() + '/session.xml')
+        res = item.getroot()
+
+        success = res.get('success')
+        info = res.get('info')
+
+        if success == 'no':
+            debuglog(f'Couldn\'t send client-quit request. The server returned an error: {info}',2)
+            return False
+        else:
+            return True
+
+    except Exception as e:
+        debuglog(f'An error occured: {str(e)}', 2)
         return False
 
 def get_friends_list(userid: int, token: str, visitingid: int) -> dict:
@@ -100,19 +182,19 @@ def get_friends_list(userid: int, token: str, visitingid: int) -> dict:
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('friends.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
         return []
-    
+
     list = []
 
     item = et.parse(os.getcwd() + '/friends.xml')
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[FriendManager]: Unable to get friends: The server returned an error: {info}', 2)
         print(f'Error getting friends: {info}')
@@ -146,19 +228,19 @@ def user_search(userid: int, token: str, search_string: str) -> dict:
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('users.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
         return []
-    
+
     list = []
 
     item = et.parse(os.getcwd() + '/users.xml')
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[UserSearch]: Error getting search results: The server returned an error: {info}', 2)
         print(f'Error getting search results: {info}')
@@ -189,7 +271,7 @@ def getranking(userid: int, token: str, username: str, id: int):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('ranking.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -199,7 +281,7 @@ def getranking(userid: int, token: str, username: str, id: int):
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         print(f'Error getting ranking: {info}')
         return
@@ -215,7 +297,7 @@ def getranking(userid: int, token: str, username: str, id: int):
         if int(rank) < 0:
             print(f'{username} has no ranking yet!')
             return
-        
+
         print(f'{username} is at rank {rank} with a score of {scores}.')
         print('Detailed ranked information:')
         print(f'Number of races done: {num_races_done}')
@@ -223,7 +305,7 @@ def getranking(userid: int, token: str, username: str, id: int):
         print(f'Raw Score: {raw_scores}')
         print(f'Rating Deviation: {rating_deviation}')
         print(f'Disconnects: {disconnects}')
-        
+
 def top_players(userid: int, token: str) -> dict:
     try:
         payload = f'userid={userid}&token={token}'
@@ -241,19 +323,19 @@ def top_players(userid: int, token: str) -> dict:
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('top.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
         return []
-    
+
     list = []
 
     item = et.parse(os.getcwd() + '/top.xml')
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[RankedTopPlayers]: Couldn\'t get top players: The server returned an error: {info}', 2)
         print(f'Error getting top players: {info}')
@@ -266,7 +348,7 @@ def top_players(userid: int, token: str) -> dict:
             list.append([player.get('username'),
                         int(float(player.get('scores'))),
                         int(float(player.get('max-scores'))),
-                        player.get('num-races-done'),                        
+                        player.get('num-races-done'),
                         int(float(player.get('raw-scores'))),
                         int(float(player.get('rating-deviation'))),
                         player.get('disconnects')])
@@ -290,7 +372,7 @@ def friend_request(userid: int, token: str, friendid: int):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('friendrequest.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -300,7 +382,7 @@ def friend_request(userid: int, token: str, friendid: int):
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[FriendService]: Error sending friend request: The server returned an error: {info}', 2)
         print(f'Error sending friend request: {info}')
@@ -325,7 +407,7 @@ def accept_friend_request(userid: int, token: str, friendid: int):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('friendrequest.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -335,7 +417,7 @@ def accept_friend_request(userid: int, token: str, friendid: int):
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         print(f'Error accepting friend request: {info}')
         return
@@ -359,7 +441,7 @@ def cancel_friend_request(userid: int, token: str, friendid: int):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('friendrequest.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -369,13 +451,48 @@ def cancel_friend_request(userid: int, token: str, friendid: int):
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[FriendService]: Error cancelling friend request: The server returned an error: {info}', 2)
         print(f'Error cancelling friend request: {info}')
         return
     else:
         print(f'Successfully cancelled friend request of ID {friendid}!')
+
+def remove_friend(userid: int, token: str, friendid: int):
+    try:
+        payload = f'userid={userid}&token={token}&friendid={friendid}'
+
+        debuglog(f'Sending \'{payload}\' to \'{api}remove-friend\''.replace(token, '**************'), 0)
+
+        proc = subprocess.run([
+                            'curl',
+                            '-fsSL',
+                            '--request',
+                            'POST',
+                            api + 'remove-friend',
+                            '--data',
+                            payload,
+                            '--user-agent',
+                            '\'' + useragent + '\''
+                            ], stdout=subprocess.PIPE)
+
+        with open('friendrequest.xml', 'w') as f:
+            f.write(proc.stdout.decode('utf-8'))
+    except Exception:
+        pass
+
+    item = et.parse(os.getcwd() + '/friendrequest.xml')
+    res = item.getroot()
+
+    info = res.get('info')
+
+    if res.get('success') == 'no':
+        debuglog(f'[FriendService]: Error removing friend: The server returned an error: {info}', 2)
+        print(f'Error removing: {info}')
+        return
+    else:
+        print(f'Successfully removed {friendid}!')
 
 def decline_friend_request(userid: int, token: str, friendid: int):
     try:
@@ -394,7 +511,7 @@ def decline_friend_request(userid: int, token: str, friendid: int):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('friendrequest.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -404,7 +521,7 @@ def decline_friend_request(userid: int, token: str, friendid: int):
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[FriendService]: Error declining friend request: The server returned an error: {info}', 2)
         print(f'Error declining friend request: {info}')
@@ -430,7 +547,7 @@ def register(username: str, password: str, password_confirm: str, realname: str,
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('registration.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -440,7 +557,7 @@ def register(username: str, password: str, password_confirm: str, realname: str,
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[Registrar]: Couldn\'t register user {username}: The server returned an error: {info}', 0)
         print(f'Unable to register: {info}')
@@ -464,7 +581,7 @@ def reset_password(userid: int, current: str, new1: str, new2: str):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('reset_password.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -474,7 +591,7 @@ def reset_password(userid: int, current: str, new1: str, new2: str):
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[PasswordReset]: Password reset failed: The server returned an error: {info}', 2)
         print(f'Can\'t reset password: {info}')
@@ -499,7 +616,7 @@ def account_recovery(username: str, email: str):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('recovery.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
@@ -509,7 +626,7 @@ def account_recovery(username: str, email: str):
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         debuglog(f'[Recovery]: Couldn\'t process recovery: The server returned an error: {info}', 2)
         print(f'Can\'t recover account: {info}')
@@ -534,17 +651,17 @@ def change_email(userid: int, token: str, new_email: str):
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
-        with open('friendrequest.xml', 'w') as f:
+
+        with open('change_email.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
     except Exception:
         pass
 
-    item = et.parse(os.getcwd() + '/friendrequest.xml')
+    item = et.parse(os.getcwd() + '/change_email.xml')
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         print(f'Can\'t change email: {info}')
         return
@@ -568,7 +685,7 @@ def getaddonvote(userid: int, token: str, addonid: str) -> dict:
                            '--user-agent',
                            '\'' + useragent + '\''
                            ], stdout=subprocess.PIPE)
-        
+
         with open('addon_vote.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
 
@@ -579,17 +696,18 @@ def getaddonvote(userid: int, token: str, addonid: str) -> dict:
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         print(f'Can\'t get addon vote: {info}')
         return
     else:
         return [res.get('voted'), res.get('rating')]
-    
+
 def setaddonvote(userid: int, token: str, addonid: str, rating: int) -> dict:
 
     if int(rating) > 3:
         print('Your rating is above 3. It will automatically be set to 3.')
+        rating = 3
 
     try:
         payload = f'userid={userid}&token={token}&addonid={addonid}&rating={rating}'
@@ -606,7 +724,7 @@ def setaddonvote(userid: int, token: str, addonid: str, rating: int) -> dict:
                            '--user-agent',
                            '\'' + useragent + '\''
                            ], stdout=subprocess.PIPE)
-        
+
         with open('addon_vote.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
 
@@ -617,7 +735,7 @@ def setaddonvote(userid: int, token: str, addonid: str, rating: int) -> dict:
     res = item.getroot()
 
     info = res.get('info')
-    
+
     if res.get('success') == 'no':
         print(f'Can\'t set addon vote: {info}')
         return
@@ -631,12 +749,12 @@ def setaddonvote(userid: int, token: str, addonid: str, rating: int) -> dict:
 # =============================================================
 # =============================================================
 
-def authenticate(username: str, password: str, save_session: str) -> dict:
+def authenticate(username: str, password: str, save_session: str = None) -> dict:
     try:
 
-        if save_session == '':
-            save_session = 'false'
-        
+        if save_session is None:
+            save_session = 'true'
+
 
         payload = f'username={username}&password={password}&save_session={save_session}'
 
@@ -653,7 +771,7 @@ def authenticate(username: str, password: str, save_session: str) -> dict:
                             '--user-agent',
                             '\'' + useragent + '\''
                             ], stdout=subprocess.PIPE)
-        
+
         with open('connect.xml', 'w') as f:
             f.write(proc.stdout.decode('utf-8'))
 
@@ -670,13 +788,17 @@ def authenticate(username: str, password: str, save_session: str) -> dict:
     except Exception as e:
         print(str(e))
 
-def login_prompt():
+def login_prompt(username: str = None):
 
-    username = input('Username: ')
-    
-    if username == '':
-        print('Username cannot be blank.')
-        login_prompt()
+
+    if username is None:
+        name = input('Username: ')
+
+        if name == '':
+            print('Username cannot be blank.')
+            login_prompt()
+    else:
+        name = username
 
     password = getpass('Password: ')
 
@@ -686,19 +808,29 @@ def login_prompt():
 
     clear()
 
-    print(f'Logging in {username}...')
+    print(f'Logging in {name}...')
 
-    data = authenticate(username, password, 'true')
+    data = authenticate(name, password)
 
     config.set('Config', 'token', data[1])
     config.set('Config', 'userid', data[0])
     config.set('Config', 'username', data[2])
 
+    with open(os.path.expanduser('~')+"/.config/searinminecraft/stk_api_playground/config.ini", 'w') as configfile:
+            config.write(configfile)
+
+    config.read(os.path.expanduser('~') + "/.config/searinminecraft/stk_api_playground/config.ini")
+
+    savedsession(config.get('Config', 'userid'), config.get('Config', 'token'))
+    poll(config.get('Config', 'userid'), config.get('Config', 'token'))
+
     with open(os.path.expanduser('~') + '/.config/searinminecraft/stk_api_playground/config.ini', 'w') as f:
        config.write(f)
 
+    main()
+
 def loggedoutenv():
-    
+
     choices = ['Login to STKAddons', 'Sign Up for an account', 'Reset password', 'Exit']
 
     opt, ind = pick(choices, 'Welcome to STKAddons CLI!')
@@ -715,9 +847,8 @@ def loggedoutenv():
 # =============================================================
 # =============================================================
 
-
 def get_addons(want: int) -> dict:
-    
+
     try:
         proc = subprocess.run([
                             'curl',
@@ -739,7 +870,7 @@ def get_addons(want: int) -> dict:
 
         for kart in root.findall('kart'):
             list_kart.append([kart.get('name'), kart.get('id'), kart.get('file'), kart.get('uploader'), kart.get('designer'), kart.get('description'), int(kart.get('status')), int(len(kart.get('rating'))), int(kart.get('revision'))])
-        
+
         for track in root.findall('track'):
             list_track.append([track.get('name'), track.get('id'), track.get('file'), track.get('uploader'), track.get('designer'), track.get('description'), int(track.get('status')), int(len(track.get('rating'))), int(track.get('revision'))])
 
@@ -785,7 +916,7 @@ def get_addon_details(item: dict, type: int):
 
             debuglog(f'[AddonManager]: retrieving file \'{file}\'', 0)
             request.urlretrieve(file, os.getcwd() + f'/{id}.zip')
-            
+
 
             debuglog('Unpacking file ' + os.getcwd() + f'/{id}.zip', 0)
             if type == 0:
@@ -801,24 +932,24 @@ def get_addon_details(item: dict, type: int):
         else:
             print(f'Successfully downloaded {name}!')
             input('Press Enter to continue.')
-            
+
             addonexplorer()
     if ind == 1:
         clear()
         print(f'Please wait while I get your vote for {name}...')
-        
+
         res = getaddonvote(config.get('Config', 'userid'), config.get('Config', 'token'), id)
 
         if res[0] == 'no':
             print('You have not voted for the addon yet. Input your rating from 0-3 to cast a vote:')
         else:
             print(f'You\'ve voted for the addon {name} already with a rating of {res[1]}. But you can change the rating by inputting a rating from 0-3:')
-        
+
         rating = input('>')
 
         print('Please wait...')
 
-        res = setaddonvote(config.get('Config', 'userid'), config.get('Config', 'token'), id, rating)
+        res = setaddonvote(config.get('Config', 'userid'), config.get('Config', 'token'), id, int(rating))
 
         print(f'Successfully voted for addon {name}! New average rating: {res[0]}')
         input('Press enter to continue.')
@@ -841,7 +972,7 @@ def addonexplorer():
         for key in karts:
             choices.append(f'{key[0]} (revision {key[8]}) by {key[4]}')
 
-        
+
         opt, ind = pick(choices, 'Pick a kart to get details or install: ', '>')
 
         get_addon_details(karts[ind], 0)
@@ -853,8 +984,8 @@ def addonexplorer():
 
         for key in tracks:
             choices.append(f'{key[0]} (revision {key[8]}) by {key[4]}')
-            
-        
+
+
         opt, ind = pick(choices, 'Pick a track to get details or install: ', '>')
 
         get_addon_details(tracks[ind], 1)
@@ -866,15 +997,14 @@ def addonexplorer():
 
         for key in arenas:
             choices.append(f'{key[0]} (revision {key[8]}) by {key[4]}')
-            
-        
+
+
         opt, ind = pick(choices, 'Pick an arena to get details or install: ', '>')
 
         get_addon_details(arenas[ind], 2)
 
     if ind == 0:
         return
-        
 
 # =============================================================
 # =============================================================
@@ -897,11 +1027,6 @@ def process_friends_list():
         else:
             print(f'{friend[0]}  {friend[1]}')
 
-
-# =============================================================
-# =============================================================
-
-
 def getuserranking():
 
     id = input('ID of user to get ranking info (leave blank for your ranking information): ')
@@ -916,7 +1041,6 @@ def getuserranking():
         print(f'Getting ranking information from ID {id}')
         getranking(config.get('Config', 'userid'), config.get('Config', 'token'), id, id)
 
-
 def search():
 
     user = input('Enter the string you want to search: ')
@@ -927,10 +1051,16 @@ def search():
 
     print('<Name> <ID>')
 
-    for user in user_search(config.get('Config', 'userid'), config.get('Config', 'token'), user):
+    query = user_search(config.get('Config', 'userid'), config.get('Config', 'token'), user)
+
+    if query == []:
+        print('No Results :/')
+        return
+
+    for user in query:
         print(f'{user[0]} {user[1]}')
 
-def getldb(): 
+def getldb():
 
     print('Top 10 Ranked Players')
 
@@ -939,7 +1069,7 @@ def getldb():
     rank = 1
 
     for player in top_players(config.get('Config', 'userid'), config.get('Config', 'token')):
-        
+
 
         print(f'{rank}. {player[0]} {player[1]} {player[2]} {player[3]} {player[4]} {player[5]} {player[6]}')
 
@@ -984,8 +1114,8 @@ def registration():
     email = input('Enter your email: ')
 
     if email == '':
-        print('Email cannot be blank.')  
-        registration()  
+        print('Email cannot be blank.')
+        registration()
 
     realname = input(f'Enter your real name [{username}]: ')
 
@@ -1015,7 +1145,7 @@ def passwordreset():
     if confirm != new:
         print('Passwords don\'t match!')
         passwordreset()
-    
+
     reset_password(config.get('Config', 'userid'), current, new, confirm)
 
 def recovery():
@@ -1033,7 +1163,7 @@ def recovery():
     if email == '':
         print('Email cannot be blank.')
         recovery()
-    
+
     account_recovery(username, email.replace('@', '%40'))
 
 def email_change():
@@ -1067,6 +1197,10 @@ def init():
 # =============================================================
 # =============================================================
 
+def cleanup():
+    for file in glob('*.xml'):
+        os.remove(os.getcwd() + '/' + file)
+
 def main():
 
     choices = ['Log Out',
@@ -1089,13 +1223,15 @@ def main():
 
     if ind == 0:
         print('Goodbye!')
+        cleanup()
         config.set('Config', 'token', '')
         config.set('Config', 'userid', '')
         config.set('Config', 'username', '')
 
         with open(os.path.expanduser('~')+"/.config/searinminecraft/stk_api_playground/config.ini", 'w') as configfile:
             config.write(configfile)
-        
+
+        client_quit(config.get('Config', 'userid'), config.get('Config', 'token'))
 
         loggedoutenv()
     elif ind == 1:
@@ -1106,7 +1242,7 @@ def main():
             print('Success!')
             input('\nPress enter to continue.')
         else:
-            print('Can\'t poll user.')
+            print('User poll failed.')
             input('\nPress enter to continue.')
     elif ind == 3:
         process_friends_list()
@@ -1138,6 +1274,8 @@ def main():
         addonexplorer()
     elif ind == 13:
         print("Goodbye!")
+        client_quit(config.get('Config', 'userid'), config.get('Config', 'token'))
+        cleanup()
         sys.exit(0)
 
     clear()
@@ -1146,23 +1284,9 @@ def main():
 # =============================================================
 # =============================================================
 
-testmode = False
-
-def testinggrounds():
-    if testmode == False: return
-
-    debuglog('[Test]: Inititalizing testing grounds...', 0)
-    # =============================================================
-    config.read(os.path.expanduser('~') + '/.config/searinminecraft/stk_api_playground/config.ini')
-    getaddonvote(config.get('Config', 'userid'), config.get('Config', 'token'), 'kiki')
-
-    # =============================================================
-
-    sys.exit(0)
-
 if __name__ == '__main__':
-    testinggrounds()
     clear()
+
     debuglog("Checking for config...", 0)
     if (not(os.path.exists(os.path.expanduser('~')+"/.config/searinminecraft/stk_api_playground/config.ini")) or os.stat(os.path.expanduser('~')+"/.config/searinminecraft/stk_api_playground/config.ini").st_size == 0):
         init()
@@ -1175,10 +1299,14 @@ if __name__ == '__main__':
         loggedoutenv()
 
     debuglog("Authenticating user...", 0)
-    pollstat = poll(config.get('Config', 'userid'), config.get('Config', 'token'))
+    pollstat = savedsession(config.get('Config', 'userid'), config.get('Config', 'token'))
 
     if pollstat == False:
         print("Session is invalid (token may be tempoary, expired, or renewed). Please log in again.")
-        login_prompt()
+
+        print("Logging in as " + config.get('Config', 'username') +".")
+        login_prompt(config.get('Config', 'username'))
     clear()
+    poll(config.get('Config', 'userid'), config.get('Config', 'token'))
     main()
+
